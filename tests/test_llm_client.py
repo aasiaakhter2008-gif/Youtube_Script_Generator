@@ -95,18 +95,33 @@ def test_get_llm_client_returns_gemini_chain_when_provider_is_gemini(monkeypatch
 
 def test_get_llm_client_gemini_role_models(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "LLM_PROVIDER", "gemini")
+
     outline_client = get_llm_client(role="outline")
     assert isinstance(outline_client, FallbackLLMClient)
     assert isinstance(outline_client.clients[0], GeminiLLMClient)
     assert outline_client.model == settings.GEMINI_MODEL_FAST
+
     writer_client = get_llm_client(role="writer")
     assert isinstance(writer_client, FallbackLLMClient)
     assert writer_client.model == settings.GEMINI_MODEL_WRITER
-    # the fallback chain (excluding duplicates) follows the primary model
+
     chain_models = [c.model for c in writer_client.clients]
-    assert chain_models[0] == settings.GEMINI_MODEL_WRITER
-    expected = [m.strip() for m in settings.GEMINI_MODEL_FALLBACKS.split(",") if m.strip() and m.strip() != settings.GEMINI_MODEL_WRITER]
-    assert chain_models[1:] == expected
+
+    expected = [
+        m.strip()
+        for m in settings.GEMINI_MODEL_FALLBACKS.split(",")
+        if m.strip() and m.strip() != settings.GEMINI_MODEL_WRITER
+    ]
+
+    assert chain_models[:len(expected) + 1] == [
+        settings.GEMINI_MODEL_WRITER,
+        *expected,
+    ]
+
+    if settings.GROQ_API_KEY:
+        assert chain_models[-1] == (
+            settings.GROQ_MODEL or "openai/gpt-oss-20b"
+        ).strip()
 
 
 def test_get_llm_client_defaults_to_anthropic_provider(monkeypatch: pytest.MonkeyPatch) -> None:

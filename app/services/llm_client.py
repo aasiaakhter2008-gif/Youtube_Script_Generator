@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, TypeVar
 
 import httpx
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from openai import APIStatusError, APITimeoutError, AsyncOpenAI
 from pydantic import BaseModel, ValidationError
 from tenacity import (
@@ -106,7 +106,7 @@ class AnthropicLLMClient(BaseLLMClient):
         backoff_base: float = 0.5,
         max_tokens: int = 4096,
     ) -> None:
-        self.client: Anthropic = Anthropic(api_key=api_key or "sk-no-key-set", base_url=base_url)
+        self.client: AsyncAnthropic = AsyncAnthropic(api_key=api_key or "sk-no-key-set",base_url=base_url,)
         self.model = model
         self.temperature = temperature
         self.max_retries = max_retries
