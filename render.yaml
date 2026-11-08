@@ -1,0 +1,65 @@
+# Zero-cost backend deployment on Render (free web service, no credit card).
+#
+# What this creates:
+#   - one Docker web service running the FastAPI backend on Render's free plan
+#   - free tier spins down after 15 min idle; the frontend shows a "waking up" banner
+#
+# Database is NOT created here on purpose: Render's free Postgres expires after 30 days.
+# Create a free Neon project (https://neon.com, no card) and paste its connection string
+# into DATABASE_URL. SQLite fallback works but Render's filesystem is ephemeral.
+#
+# Deploy: Render Dashboard -> New -> Blueprint -> connect this repo.
+# Then fill every `sync: false` variable in the dashboard.
+services:
+  - type: web
+    name: youtube-script-generator-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Generate locally: python scripts/generate_secret.py
+      - key: API_KEY
+        sync: false
+      # Neon free Postgres, e.g. postgresql+psycopg://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # Google AI Studio free key: https://aistudio.google.com/apikey
+      - key: GEMINI_API_KEY
+        sync: false
+      # Optional free Groq fallback: https://console.groq.com/keys
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      # Vercel frontend origin, e.g. https://your-app.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # Optional free Qdrant Cloud cluster (leave empty for in-memory fallback)
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: TTS_PROVIDER
+        value: edge
+      - key: GENERATION_DAILY_LIMIT_PER_USER
+        value: "20"
+      - key: LLM_REQUESTS_PER_MINUTE
+        value: "8"
+      - key: LLM_MAX_CONCURRENCY
+        value: "2"
+      - key: LLM_CACHE_TTL_SECONDS
+        value: "3600"
+      - key: GEMINI_REQUEST_TIMEOUT_SECONDS
+        value: "90"
+      - key: EVAL_MIN_SCORE
+        value: "7.0"
+      - key: EVAL_MODE
+        value: auto

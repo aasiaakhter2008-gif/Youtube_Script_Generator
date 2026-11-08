@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ruff (fatal correctness checks only)
+        run: ruff check app tests sdk --select F,E9,E7
+
+      - name: Compile check
+        run: python -m compileall -q app tests sdk
+
+      - name: Pytest
+        env:
+          APP_ENV: development
+          API_KEY: ci-test-key-a-32-plus-char-test-key-for-pytest
+          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
+          GEMINI_API_KEY: ""
+          QDRANT_URL: ""
+        run: pytest -q
+
+  docker-smoke:
+    # Builds both images on GitHub's free runners and exercises the real containers.
+    # This is how Docker correctness is verified without Docker on the developer PC.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -f Dockerfile.backend -t ysg-api:ci .
+
+      - name: Build frontend image
+        run: docker build --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 -t ysg-web:ci ./frontend
+
+      - name: Start backend container
+        run: |
+          docker run -d --name ysg-api \
+            -p 8000:8000 \
+            -e APP_ENV=production \
+            -e API_KEY=ci-docker-smoke-key-a-32-plus-char-key \
+            -e DATABASE_URL=sqlite+aiosqlite:////app/data/app.db \
+            -e ALLOWED_ORIGINS=http://localhost:3000 \
+            -e LLM_PROVIDER=gemini \
+            -e GEMINI_API_KEY= \
+            -e GROQ_API_KEY= \
+            -e GEMINI_MODEL_FAST=gemini-3.1-flash-lite \
+            -e GEMINI_MODEL_WRITER=gemini-3.1-flash-lite \
+            -e GEMINI_MODEL_FALLBACKS=gemini-3.1-flash-lite \
+            -e AGENT_TIMEOUT_SECONDS=10 \
+            -e RATE_LIMIT_PER_MINUTE=500 \
+            -e GENERATION_DAILY_LIMIT_PER_USER=20 \
+            ysg-api:ci
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              echo "backend healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs ysg-api
+          exit 1
+
+      - name: Set up Python for smoke test
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Smoke test the backend container
+        env:
+          API_BASE_URL: http://127.0.0.1:8000
+          API_KEY: ci-docker-smoke-key-a-32-plus-char-key
+        run: python scripts/smoke_test.py
+
+      - name: Start frontend container
+        run: docker run -d --name ysg-web -p 3000:3000 ysg-web:ci
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              echo "frontend healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs ysg-web
+          exit 1
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs ysg-api || true
+          docker logs ysg-web || true

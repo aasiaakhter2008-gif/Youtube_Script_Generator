@@ -1,0 +1,50 @@
+# ---- build stage ----
+FROM python:3.12-slim AS build
+
+WORKDIR /build
+
+# System build deps (kept out of the runtime image)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ---- runtime stage ----
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    APP_ENV=production
+
+# Runtime libs only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app && useradd --system --gid app app
+
+COPY --from=build /install /usr/local
+
+COPY app ./app
+COPY sdk ./sdk
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
+COPY scripts ./scripts
+COPY requirements.txt ./requirements.txt
+
+# Data dir for SQLite fallback / exports (mount a volume in compose)
+RUN mkdir -p /app/data && chown -R app:app /app
+USER app
+
+EXPOSE 8000
+
+ENV DATABASE_URL=sqlite+aiosqlite:////app/data/app.db
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD python -c "import os,sys,urllib.request; port=os.environ.get('PORT','8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/health', timeout=5).status==200 else 1)"
+
+# Free hosts (Render, Railway, Fly) inject PORT; local Docker defaults to 8000.
+CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

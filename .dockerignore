@@ -1,0 +1,37 @@
+# VCS & secrets
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+!.env.production.example
+!frontend/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/.next/
+
+# Data / runtime artifacts
+data/
+*.db
+*.sqlite3
+*.mp3
+tts_output/
+storyboard_exports/
+
+# Dev-only files
+tests/
+.vscode/
+*.md
+!DEPLOY.md
+!README.md

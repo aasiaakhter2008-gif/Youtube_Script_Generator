@@ -1,0 +1,33 @@
+# Secrets / env
+.env
+.env.local
+.env.*.local
+.env.production
+.env.production.local
+frontend/.env.local
+frontend/.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Data / runtime artifacts
+data/
+*.db
+*.sqlite3
+*.mp3
+tts_output/
+storyboard_exports/
+frontend/public/generated/
+errors.txt
