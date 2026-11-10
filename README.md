@@ -103,7 +103,7 @@ with a retry hint; press **Retry** in the UI.
 | `APP_ENV` | `development` | Production refuses to boot with an empty/default/<32-char `API_KEY` or `*` CORS. |
 | `API_KEY` | — | **Required.** Generate with `python scripts/generate_secret.py`. |
 | `ALLOWED_ORIGINS` | localhost:3000 | Comma-separated exact origins. Never `*` in production. |
-| `DATABASE_URL` | `sqlite+aiosqlite:///./data/...` | Use `postgresql+psycopg://…?sslmode=require` on Neon; `postgresql+asyncpg://…` for local Docker Postgres. |
+| `DATABASE_URL` | — | — |
 | `LLM_PROVIDER` | `gemini` | `gemini` (free chain) or `anthropic` (paid). |
 | `GEMINI_API_KEY` | — | Google AI Studio key (free). |
 | `GEMINI_MODEL_FAST` | `gemini-3.1-flash-lite` | Outline/hook/critic/SEO. |
